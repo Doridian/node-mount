@@ -1,68 +1,67 @@
 #include <sys/mount.h>
-#include <v8.h>
 #include <node.h>
 #include <errno.h>
 #include <string.h>
 #include <iostream>
 
-v8::Handle<v8::Value> Mount(const v8::Arguments &args) {
-  v8::HandleScope scope;
+namespace {
+
+void Mount(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = args.GetIsolate();
 
   if (args.Length() != 5) {
-    // TODO: make it raise a proper exception
-    return v8::ThrowException(v8::String::New("`mount` needs 5 parameters"));
+    isolate->ThrowException(v8::Exception::TypeError(
+        v8::String::NewFromUtf8(isolate, "`mount` needs 5 parameters")));
+    return;
   }
 
-  v8::String::Utf8Value device(args[0]->ToString());
-  v8::String::Utf8Value path(args[1]->ToString());
-  v8::String::Utf8Value type(args[2]->ToString());
-  int mask = args[3]->ToInt32()->Value();
-  v8::String::Utf8Value data(args[4]->ToString());
+  v8::String::Utf8Value device(args[0]->ToString(isolate));
+  v8::String::Utf8Value path(args[1]->ToString(isolate));
+  v8::String::Utf8Value type(args[2]->ToString(isolate));
+  int mask = args[3]->ToInt32(isolate)->Value();
+  v8::String::Utf8Value data(args[4]->ToString(isolate));
 
   int mountNum = mount(*device, *path, *type, mask, *data);
   
   bool mountAction = (mountNum == 0) ? true : false;
 
-  v8::Local<v8::Value> mounted = v8::Local<v8::Value>::New(v8::Boolean::New(mountAction));
-
-  return scope.Close(mounted);
+  args.GetReturnValue().Set(v8::Boolean::New(isolate, mountAction));
 }
 
-v8::Handle<v8::Value> Unmount(const v8::Arguments &args) {
-  v8::HandleScope scope;
+void Unmount(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = args.GetIsolate();
 
   if (args.Length() != 1) {
-    return v8::ThrowException(v8::String::New("`umount` needs 1 parameter"));
+    isolate->ThrowException(v8::Exception::TypeError(
+        v8::String::NewFromUtf8(isolate, "`umount` needs 1 parameter")));
+    return;
   }
 
   v8::String::Utf8Value path(args[0]->ToString());
 
   bool mountAction = (umount(*path) == 0) ? true : false;
 
-  v8::Local<v8::Value> mounted = v8::Local<v8::Value>::New(v8::Boolean::New(mountAction));
-
-  return scope.Close(mounted);
+  args.GetReturnValue().Set(v8::Boolean::New(isolate, mountAction));
 }
 
-#define EXPORT_CONST(__NAME__) exports->Set(v8::String::NewSymbol(#__NAME__), v8::Int32::New(__NAME__), v8::ReadOnly)
+void init (v8::Local<v8::Object> exports) {
+  NODE_SET_METHOD(exports, "mount", Mount);
+  NODE_SET_METHOD(exports, "unmount", Unmount);
 
-void init (v8::Handle<v8::Object> exports, v8::Handle<v8::Object> module) {
-  exports->Set(v8::String::NewSymbol("mount"), v8::FunctionTemplate::New(Mount)->GetFunction());
-  exports->Set(v8::String::NewSymbol("unmount"), v8::FunctionTemplate::New(Unmount)->GetFunction());
+  NODE_DEFINE_CONSTANT(exports, MS_BIND);
+  NODE_DEFINE_CONSTANT(exports, MS_MOVE);
   
-  EXPORT_CONST(MS_BIND);
-  EXPORT_CONST(MS_MOVE);
+  NODE_DEFINE_CONSTANT(exports, MS_NOATIME);
+  NODE_DEFINE_CONSTANT(exports, MS_NODIRATIME);
+  NODE_DEFINE_CONSTANT(exports, MS_RELATIME);
   
-  EXPORT_CONST(MS_NOATIME);
-  EXPORT_CONST(MS_NODIRATIME);
-  EXPORT_CONST(MS_RELATIME);
+  NODE_DEFINE_CONSTANT(exports, MS_NODEV);
+  NODE_DEFINE_CONSTANT(exports, MS_NOEXEC);
+  NODE_DEFINE_CONSTANT(exports, MS_NOSUID);
   
-  EXPORT_CONST(MS_NODEV);
-  EXPORT_CONST(MS_NOEXEC);
-  EXPORT_CONST(MS_NOSUID);
-  
-  EXPORT_CONST(MS_RDONLY);
-  EXPORT_CONST(MS_REMOUNT);
+  NODE_DEFINE_CONSTANT(exports, MS_RDONLY);
+  NODE_DEFINE_CONSTANT(exports, MS_REMOUNT);
 }
 NODE_MODULE(mount, init)
 
+}
